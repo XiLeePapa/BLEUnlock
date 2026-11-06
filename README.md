@@ -1,31 +1,31 @@
 # BLEUnlock
 
-BLEUnlock locks your Mac when you walk away with your iPhone, Apple Watch, or another Bluetooth Low Energy device, and unlocks it when you get back. The app lives in the menu bar, and nothing runs on the phone.
+BLEUnlock 在你带着 iPhone、Apple Watch 或其他蓝牙低功耗设备离开时锁定 Mac，回来时自动解锁。app 常驻菜单栏，手机端不需要装任何东西。
 
-This repository is a fork of [ts1/BLEUnlock](https://github.com/ts1/BLEUnlock). It keeps the original behaviour, fixes what broke on recent macOS, and adds a few things on top.
+本仓库是 [ts1/BLEUnlock](https://github.com/ts1/BLEUnlock) 的 fork。保留原版功能，修复近期 macOS 上的问题，并加了几项改进。
 
 ![Downloads](https://img.shields.io/github/downloads/XiLeePapa/BLEUnlock/total.svg)
 [![Buy me a coffee](img/buymeacoffee.svg)](https://www.buymeacoffee.com/tsone)
 
-This document is also available in [Japanese](README.ja.md).
+本文档也有[日文版](README.ja.md)。
 
-## What this fork adds
+## 这个 fork 改了什么
 
-- **Device names in the list.** You pick `q phone`, not `197634CD-E57D-64DE-6DE0-26F579277F25`. Recent macOS stopped letting third-party apps read the system's Bluetooth records, and the upstream app lost its names with them. This fork reads the name from the device instead.
-- **A named first menu line.** The line at the top shows which device controls locking and unlocking, next to its signal reading. Before, it only showed the reading.
-- **Your own labels.** Devices that never report a name, which covers most bands, sensors and beacons, can carry a label you type.
-- **Estimated distance.** Each row can show `≈0.5m` beside the dBm reading, from a reference value you calibrate once.
-- **A sorted list.** Opening **Device** orders the list by signal strength, strongest first.
-- **Current Apple hardware.** The model table went from 163 entries to 258, so a model code like `iPhone18,4` reads as `iPhone Air`.
-- **A build that works on modern Xcode.** The deployment target moved from 10.13 to 12.0, which is the lowest Xcode 27 accepts.
+- **设备列表显示名称。** 你看到的是 `q phone`，不是 `197634CD-E57D-64DE-6DE0-26F579277F25`。近期 macOS 不再允许第三方 app 读取系统蓝牙记录，上游版本因此丢失了设备名。这个 fork 直接从设备获取名称。
+- **菜单顶部行显示设备名。** 顶部那行标明哪台设备控制锁定和解锁，旁边是信号读数。之前只显示读数。
+- **自定义标签。** 不广播名称的设备（大多数手环、传感器、信标）可以用你输入的名字标记。
+- **距离估算。** 每行可以在 dBm 旁边显示 `≈0.5m`，基于你校准一次的参考值计算。
+- **按信号排序。** 打开**设备列表**时按信号强度降序排列，最强的在最上面。
+- **支持当前 Apple 硬件。** 机型表从 163 条扩充到 258 条，`iPhone18,4` 现在显示为 `iPhone Air`。
+- **兼容 Xcode 27。** 部署目标从 10.13 升到 12.0，这是 Xcode 27 接受的最低版本。
 
-## Requirements
+## 系统要求
 
-- A Mac with Bluetooth Low Energy support
-- macOS 12 (Monterey) or later
-- iPhone 5s or newer, Apple Watch (all models), or another BLE device that transmits periodically from a [static MAC address](#address-stability-and-device-names)
+- 支持蓝牙低功耗的 Mac
+- macOS 12 (Monterey) 或更高
+- iPhone 5s 或更新机型、Apple Watch（所有型号），或其他定期从[静态 MAC 地址](#地址稳定性与设备名称)广播信号的 BLE 设备
 
-## Install
+## 安装
 
 ### Homebrew
 
@@ -34,143 +34,143 @@ brew tap xileepapa/tap
 brew install --cask xileepapa/tap/bleunlock
 ```
 
-Keep the `xileepapa/tap/` prefix. Plain `bleunlock` resolves to the upstream build in Homebrew's own tap.
+必须带 `xileepapa/tap/` 前缀。不带前缀的 `bleunlock` 指向 Homebrew 官方 tap 里的上游版本。
 
-Both casks install `/Applications/BLEUnlock.app`. Uninstall the one you are not keeping first, so Homebrew does not find an app it did not install:
+两个 cask 都安装到 `/Applications/BLEUnlock.app`。先卸载你不用的那个，否则 Homebrew 会发现一个它没有安装的 app：
 
 ```
 brew uninstall --cask bleunlock
 ```
 
-### Download
+### 手动下载
 
-Download `BLEUnlock-1.13.0.zip` from [Releases](https://github.com/XiLeePapa/BLEUnlock/releases), unzip it, and move `BLEUnlock.app` to `/Applications`.
+从 [Releases](https://github.com/XiLeePapa/BLEUnlock/releases) 下载 `BLEUnlock-1.13.0.zip`，解压后把 `BLEUnlock.app` 移到 `/Applications`。
 
-This build is signed ad-hoc and not notarized. `spctl --assess` rejects it, so macOS blocks the first launch. Open **System Settings → Privacy & Security** and approve BLEUnlock there, then start the app. Later launches need no approval.
+这个构建使用 ad-hoc 签名，没有经过 Apple 公证。`spctl --assess` 会拒绝它，macOS 首次启动时会拦截。打开**系统设置 → 隐私与安全性**，在那里批准 BLEUnlock，然后启动 app。后续启动不再需要批准。
 
-To skip that step, build the app yourself. Gatekeeper leaves locally built apps alone. See [Build from source](#build-from-source).
+想跳过这一步，自己编译。Gatekeeper 不管本地编译的 app。见[从源码编译](#从源码编译)。
 
-## Set up
+## 首次设置
 
-The first launch asks for several permissions. BLEUnlock cannot do its job without the first three:
+首次启动会请求以下权限。前三项不授权就无法工作：
 
-| Permission | Why you need to grant it |
+| 权限 | 为什么需要 |
 |-----|--------|
-| Bluetooth | Scanning for devices. |
-| Accessibility | Typing your password at the lock screen. Turn BLEUnlock on in **System Settings → Privacy & Security → Accessibility**. |
-| Keychain | Reading the stored password while the screen is locked. Choose **Always Allow**, or the prompt blocks the unlock. |
-| Notifications | Optional. BLEUnlock posts a banner when it locks the screen, which tells you why the Mac just locked. To see it on the lock screen, set **Show previews** to **Always** for BLEUnlock. |
+| 蓝牙 | 扫描设备。 |
+| 辅助功能 | 在锁屏界面输入密码。在**系统设置 → 隐私与安全性 → 辅助功能**中打开 BLEUnlock。 |
+| 钥匙串 | 锁屏状态下读取存储的密码。选择**始终允许**，否则弹窗会阻塞解锁。 |
+| 通知 | 可选。BLEUnlock 锁屏时发一条横幅通知，告诉你 Mac 为什么锁了。要在锁屏上看到通知，把 BLEUnlock 的**显示预览**设为**始终**。 |
 
-Older macOS versions ask for fewer of these. macOS ties each grant to the app's code signature, so a build signed with a different certificate can ask you again. Replacing the upstream app with this fork is one such case.
+旧版 macOS 要求的权限更少。macOS 把每项授权绑定到 app 的代码签名上，所以不同证书签名的构建会重新要求授权。用这个 fork 替换上游版本就属于这种情况。
 
-BLEUnlock then asks for your login password and stores it in the Keychain. Skip it by setting **Unlock RSSI** to **Disable**, if you only want automatic locking.
+BLEUnlock 接着会要求你的登录密码并存入钥匙串。如果只需要自动锁定，把**解锁 RSSI** 设为**禁用**即可跳过。
 
-To pick your device:
+选择你的设备：
 
-1. Click the menu bar icon, then click **Device**.
-2. Wait for the list to fill up. Your device appears as its name, with its MAC address when the app can resolve one.
-3. Click your device. It gets a check mark, and the first menu line starts showing its signal reading.
-4. Set **Unlock RSSI**, **Lock RSSI**, and **Delay to Lock**. Start from the reading you see when the device is in your pocket and when it is across the room.
+1. 点击菜单栏图标，然后点击**设备列表**。
+2. 等待列表填充。你的设备会以名称显示，能解析 MAC 地址时还会附带地址。
+3. 点击你的设备。它会打上勾，菜单顶部行开始显示信号读数。
+4. 设置**解锁 RSSI**、**锁定 RSSI** 和**延迟锁定**。参考设备在口袋里和在房间另一头时的读数来设定。
 
-## Options
+## 选项
 
-| Option | Description |
+| 选项 | 说明 |
 |-------|-------------|
-| Lock Screen Now | Locks the screen even if the device is nearby. It unlocks again once the device moves away and comes back. Useful before you leave your seat. |
-| Unlock RSSI | Signal strength needed to unlock. A larger value means the device has to be closer. Choose **Disable** to never unlock automatically. |
-| Lock RSSI | Signal strength that counts as away. A smaller value means the device has to be farther away before locking. Choose **Disable** to never lock automatically. |
-| Delay to Lock | How long the device has to be away before the Mac locks. If the device comes back within that time, nothing happens. |
-| No-Signal Timeout | How long BLEUnlock waits between the last signal and locking. Raise it if "Signal is lost" locks happen too often. |
-| Wake on Proximity | Wakes the display from sleep when the device approaches while the screen is locked. |
-| Wake without Unlocking | BLEUnlock does not unlock when the display wakes, whether **Wake on Proximity** woke it or you did. Use it with the built-in Apple Watch unlock, or if you want the lock screen to appear sooner. |
-| Pause "Now Playing" while Locked | Pauses and resumes the music or video that the **Now Playing** widget or the ⏯ key controls, on lock and unlock. |
-| Use Screensaver to Lock | Starts the screensaver instead of locking. Set **Require password immediately after sleep or screen saver begins** in **System Settings → Privacy & Security** so the screensaver really locks the session. |
-| Turn Off Screen on Lock | Turns the display off as soon as it locks. |
-| Set Password… | Stores a new login password, after you change it. |
-| Passive Mode | Reads the signal from advertisements only, and never connects to the device. The default mode connects and reads the signal directly, which is steadier. Turn on Passive Mode if a Bluetooth keyboard, mouse, trackpad, or Personal Hotspot misbehaves. 2.4 GHz Wi-Fi can cause the same interference. |
-| Launch at Login | Starts BLEUnlock when you log in. |
-| Set Minimum RSSI | Hides devices weaker than this value from the scan list. |
-| Show Estimated Distance | Adds a distance to each device, such as `q phone (-52dBm ≈0.5m)`. The distance comes from the signal reading, so treat it as a guide. Thresholds stay in dBm. |
-| Set 1m Reference RSSI… | The signal a device shows at exactly one meter, used only for the estimate. Typical values are -50 to -70 dBm. Raising it makes estimates larger, lowering it makes them smaller. iBeacons carry this value themselves and ignore the setting. |
-| Rename Selected Device… | Labels the selected device with a name you choose, shown in the list and on the first menu line. Leave the field empty to go back to the name the device reports. |
+| 立刻锁定屏幕 | 即使设备在附近也锁定屏幕。设备离开再回来后会自动解锁。适合离开座位前确保锁屏。 |
+| 解锁 RSSI | 解锁所需的信号强度。值越大，设备需要越近才能解锁。选**禁用**则永不自动解锁。 |
+| 锁定 RSSI | 判定为"离开"的信号强度。值越小，设备需要越远才会触发锁定。选**禁用**则永不自动锁定。 |
+| 延迟锁定 | 设备离开后多久才锁定 Mac。如果在这段时间内设备回来了，什么都不发生。 |
+| 无信号超时 | 最后一次收到信号到锁定之间的等待时间。如果"信号丢失"导致的锁定太频繁，调大这个值。 |
+| 靠近唤醒 | 屏幕锁定时，设备靠近会唤醒显示器。 |
+| 唤醒时不需解锁 | 显示器唤醒时 BLEUnlock 不执行解锁，无论是**靠近唤醒**触发的还是你手动唤醒的。配合 macOS 内置的 Apple Watch 解锁使用，或者你希望锁屏更快出现但不想自动解锁。 |
+| 锁定时暂停"播放中" | 锁定和解锁时暂停和恢复**播放中**控件或 ⏯ 键控制的音乐或视频。 |
+| 用屏保来锁定 | 启动屏保而不是锁定。需要在**系统设置 → 隐私与安全性**中设置**进入睡眠或开始屏幕保护程序后立即要求输入密码**，屏保才能真正锁住会话。 |
+| 锁定时关闭屏幕 | 锁定时立即关闭显示器。 |
+| 设置密码… | 更改登录密码后，用这个重新存储。 |
+| 被动模式 | 只从广播包读取信号，不连接设备。默认模式会连接设备并直接读取信号，更稳定。如果蓝牙键盘、鼠标、触控板或个人热点出现异常，打开被动模式。2.4 GHz Wi-Fi 也会造成同样的干扰。 |
+| 开机启动 | 登录时自动启动 BLEUnlock。 |
+| 设置最小 RSSI | 信号低于此值的设备不出现在扫描列表中。 |
+| 显示距离估算 | 在每个设备旁添加距离，如 `q phone (-52dBm ≈0.5m)`。距离由信号读数推算，仅供参考。阈值仍以 dBm 为准。 |
+| 设置 1 米参考 RSSI… | 设备在正好一米处的信号值，仅用于距离估算。常见取值 -50 到 -70 dBm。调大（更接近 0）估算距离变大，调小则变小。iBeacon 自带这个值，忽略此设置。 |
+| 重命名所选设备… | 给选中的设备起一个名字，显示在列表和菜单顶部行。留空则恢复设备自报的名称。 |
 
-## Troubleshooting
+## 故障排除
 
-### The name of a device did not update
+### 设备名称没有更新
 
-macOS caches the name a Bluetooth device reports. Renaming an iPhone under **Settings → General → About** does not reach the Mac just because BLEUnlock rescans. The app reads the same cached value each time. Turn Bluetooth off and on again, on the iPhone or on the Mac, and wait for the device to reappear. If the old name sticks, label it yourself with **Rename Selected Device…**.
+macOS 缓存蓝牙设备报告的名称。在 iPhone 上通过**设置 → 通用 → 关于本机**改名后，Mac 不会因为 BLEUnlock 重新扫描就拿到新名字。app 每次读到的都是同一个缓存值。在 iPhone 或 Mac 上把蓝牙关掉再开，等设备重新出现。如果旧名字仍然不变，用**重命名所选设备…**自己标记。
 
-### My device shows a UUID
+### 设备显示为 UUID
 
-BLEUnlock picks the first label it can find, in this order:
+BLEUnlock 按以下顺序取第一个可用的名称：
 
-1. The name you set with **Rename Selected Device…**
-2. The name CoreBluetooth reports for the device
-3. The name macOS 12 and older recorded for it
-4. The Local Name in the device's advertisement
-5. The model the device reports over GATT, translated through `BLEUnlock/appleDeviceNames.swift`
-6. An iBeacon label, for beacons that carry a proximity UUID
-7. The MAC address
-8. The CoreBluetooth UUID
+1. 你用**重命名所选设备…**设的名字
+2. CoreBluetooth 报告的设备名
+3. macOS 12 及更早版本记录的名称
+4. 设备广播包里的 Local Name
+5. 设备通过 GATT 报告的型号，经 `BLEUnlock/appleDeviceNames.swift` 翻译
+6. iBeacon 标签（适用于携带 proximity UUID 的信标）
+7. MAC 地址
+8. CoreBluetooth UUID
 
-A name of just `iPhone` or `iPad` counts as no name, so step 5 gets its chance first. A row that ends at the UUID told the app nothing it could use, so give it your own label with **Rename Selected Device…**.
+名称只有 `iPhone` 或 `iPad` 时视为无名，第 5 步优先。一行最终落到 UUID，说明设备没有提供任何可用信息。用**重命名所选设备…**给它起个名字。
 
-Labels are stored per CoreBluetooth device identifier, which stays put while the device keeps its address. A device that rotates a private address looks like a new device, so it needs a new label. See [Address stability and device names](#address-stability-and-device-names).
+标签按 CoreBluetooth 设备标识符存储，设备保持同一地址期间一直有效。轮换私有地址的设备看起来像新设备，需要重新标记。详见[地址稳定性与设备名称](#地址稳定性与设备名称)。
 
-If your device is a non-Apple product that does not advertise a name, BLEUnlock cannot know what it is. Move it closer to and farther from the Mac and watch which row's dBm value follows.
+如果你的设备是非 Apple 产品且不广播名称，BLEUnlock 无法知道它是什么。把设备靠近和远离 Mac，观察哪一行的 dBm 值跟着变化。
 
-### I don't see any device at all
+### 列表里看不到任何设备
 
-Reset the Bluetooth module. Hold Shift and Option and click the Bluetooth icon in the menu bar, then click **Reset the Bluetooth module**.
+重置蓝牙模块。按住 Shift + Option 点击菜单栏的蓝牙图标，然后点击**重置蓝牙模块**。
 
-macOS 12 (Monterey) removed that item. Run this instead, and enter your login password:
+macOS 12 (Monterey) 移除了这个选项。改用以下命令，输入登录密码：
 
 ```
 sudo pkill bluetoothd
 ```
 
-If the list stays empty, turn on **Passive Mode**.
+如果列表仍然为空，打开**被动模式**。
 
-### It fails to unlock
+### 无法解锁
 
-Turn BLEUnlock off and on again in **System Settings → Privacy & Security → Accessibility**. Turning it off and on again fixes a grant that macOS stopped trusting.
+在**系统设置 → 隐私与安全性 → 辅助功能**中把 BLEUnlock 关掉再开。重新开关可以修复 macOS 不再信任的授权。
 
-If it asks to read its own password in the Keychain, choose **Always Allow**. The screen is locked at that moment, so nobody can answer a prompt.
+如果弹出钥匙串访问请求，选择**始终允许**。此时屏幕已锁定，没有人能应答弹窗。
 
-### "Signal is lost" occurs frequently
+### "信号丢失"频繁出现
 
-Raise **No-Signal Timeout**, or turn on **Passive Mode**.
+调大**无信号超时**，或打开**被动模式**。
 
-### My Bluetooth keyboard, mouse, or Personal Hotspot went nuts
+### 蓝牙键盘、鼠标或个人热点异常
 
-Reset the Bluetooth module as described above, then turn on **Passive Mode**. The default mode holds a connection to your device, and that connection competes with other Bluetooth traffic.
+按上面的方法重置蓝牙模块，然后打开**被动模式**。默认模式会保持与设备的连接，这个连接会和其他蓝牙流量竞争资源。
 
-### Launchpad shows two BLEUnlock icons
+### Launchpad 显示两个 BLEUnlock 图标
 
-Two copies of the app exist on disk, usually one in `/Applications` and one under `build/dd`. Running `make build` removes the built copy for this reason. To fix a leftover, delete the copy under `build/dd` and relaunch from `/Applications`.
+磁盘上有两份 app，通常一份在 `/Applications`，一份在 `build/dd`。`make build` 会自动删除构建产物以避免这个问题。要修复残留，删掉 `build/dd` 下的副本，从 `/Applications` 重新启动。
 
-## Run a script on lock and unlock
+## 锁定和解锁时运行脚本
 
-On lock and unlock, BLEUnlock runs this script:
+锁定和解锁时，BLEUnlock 运行这个脚本：
 
 ```
 ~/Library/Application Scripts/jp.sone.BLEUnlock/event
 ```
 
-It passes the event type as the first argument:
+第一个参数是事件类型：
 
-| Event | Argument |
+| 事件 | 参数 |
 |-----|--------|
-| Locked because the signal dropped below **Lock RSSI** | `away` |
-| Locked because no signal arrived within **No-Signal Timeout** | `lost` |
-| Unlocked by BLEUnlock | `unlocked` |
-| Unlocked by hand | `intruded` |
+| 信号低于**锁定 RSSI** 导致锁定 | `away` |
+| **无信号超时**内未收到信号导致锁定 | `lost` |
+| BLEUnlock 自动解锁 | `unlocked` |
+| 手动解锁 | `intruded` |
 
-For `intruded` to work, set **Require password immediately after sleep** in **System Settings → Privacy & Security**.
+要让 `intruded` 正常工作，在**系统设置 → 隐私与安全性**中设置**进入睡眠后立即要求输入密码**。
 
-### Example
+### 示例
 
-This script sends a LINE Notify message, with a photo of whoever unlocked the Mac by hand:
+这个脚本发送 LINE Notify 消息，手动解锁时附带一张 Mac 前置摄像头拍的照片：
 
 ```sh
 #!/bin/bash
@@ -212,86 +212,86 @@ case $1 in
 esac
 ```
 
-`SnapshotUnlocker` is an app made in Script Editor from this line:
+`SnapshotUnlocker` 是用 Script Editor 从这个脚本创建的 app：
 
 ```
 do shell script "/usr/local/bin/ffmpeg -f avfoundation -r 30 -i 0 -frames:v 1 -y /tmp/unlock-$(date +%Y%m%d_%H%M%S).jpg"
 ```
 
-The extra app exists because BLEUnlock has no Camera permission. Granting permission to `SnapshotUnlocker` gets around that.
+需要这个额外的 app 是因为 BLEUnlock 没有摄像头权限。把权限授给 `SnapshotUnlocker` 就能绕过这个限制。
 
-## Address stability and device names
+## 地址稳定性与设备名称
 
-Unlike classic Bluetooth, BLE devices can use a private MAC address, and that address can be random and change over time. Phones, both iPhone and Android, now rotate such addresses every 15 minutes or so, to make tracking harder.
+与传统蓝牙不同，BLE 设备可以使用私有 MAC 地址，这个地址可以是随机的，而且会随时间变化。iPhone 和 Android 手机现在大约每 15 分钟轮换一次私有地址，目的是防止追踪。
 
-BLEUnlock can only track a device whose address stays put, because it follows the signal of one specific radio. On Apple devices signed in to the same Apple ID as the Mac, the address resolves to the true public one. For other vendors there is no way to resolve it, so a device that rotates its address cannot be supported.
+BLEUnlock 只能跟踪地址不变的设备，因为它跟踪的是某一台特定射频的信号。登录了与 Mac 相同 Apple ID 的 Apple 设备，地址会被解析为真实的公开地址。其他厂商没有已知的解析方法，所以轮换地址的设备无法支持。
 
-To check whether an address resolves, compare the MAC address in the BLEUnlock **Device** list with the one your device shows.
+要检查地址是否正确解析，把 BLEUnlock **设备列表**中显示的 MAC 地址和你设备上显示的对比。
 
-Names come from the same source as the address, which is why they broke. Through macOS 12, BLEUnlock read names from the system's own Bluetooth records: the SQLite databases under `/Library/Bluetooth`, and the caches in `/Library/Preferences/com.apple.Bluetooth.plist`. Recent macOS either keeps those from third-party apps or stopped writing them. So the app asks the device instead. CoreBluetooth reports the name the device uses for itself, which on an iPhone is what you set under **Settings → General → About**. A device that publishes a Local Name in its advertisement is read from there. When both come back empty, the app falls back to the model number GATT exposes, and translates it through `BLEUnlock/appleDeviceNames.swift`.
+名称和地址来自同一个来源，这就是名称失效的原因。macOS 12 及更早版本中，BLEUnlock 从系统的蓝牙记录读取名称：`/Library/Bluetooth` 下的 SQLite 数据库，以及 `/Library/Preferences/com.apple.Bluetooth.plist` 中的缓存。近期 macOS 要么阻止第三方 app 访问这些文件，要么不再写入。所以 app 改为直接向设备询问。CoreBluetooth 报告设备自身的名称，在 iPhone 上就是你在**设置 → 通用 → 关于本机**里设的名字。在广播包里发布 Local Name 的设备从那里读取。两者都为空时，app 回退到 GATT 暴露的型号编号，通过 `BLEUnlock/appleDeviceNames.swift` 翻译。
 
-The distance estimate works the other way, from signal to space. It models the space between the two radios as free space, with a path loss exponent of 2, so every 6 dB of signal lost doubles the estimate. Walls, a pocket, and how you hold the device all move the reading by more than that, which is why the thresholds stay in dBm.
+距离估算反过来，从信号推算空间。它把两台射频之间的空间建模为自由空间，路径损耗指数为 2，所以信号每损失 6 dB，估算距离翻倍。墙壁、口袋、手持姿势对读数的影响都超过这个量级，所以阈值仍以 dBm 为准。
 
-## Build from source
+## 从源码编译
 
-You need Xcode. The Command Line Tools are not enough, because the app compiles `MainMenu.xib` with `ibtool` and `Images.xcassets` with `actool`, and neither ships with them.
+需要 Xcode。Command Line Tools 不够，因为 app 要用 `ibtool` 编译 `MainMenu.xib`，用 `actool` 编译 `Images.xcassets`，这两个工具不随 Command Line Tools 分发。
 
 ```
-make build     # compile, then remove the built .app so Launchpad sees only one copy
-make deploy    # compile Debug, replace /Applications/BLEUnlock.app, and start it
-make clean     # delete build output
+make build     # 编译，然后删除构建出的 .app，避免 Launchpad 出现重复图标
+make deploy    # 编译 Debug 版本，替换 /Applications/BLEUnlock.app，然后启动
+make clean     # 删除构建产物
 ```
 
-`make deploy` signs ad-hoc, like the release build, but a locally built app carries no download quarantine, so Gatekeeper never asks about it.
+`make deploy` 使用 ad-hoc 签名，和 Release 构建一样，但本地编译的 app 没有下载隔离标记，Gatekeeper 不会拦截。
 
-## Publish a release
+## 发布新版本
 
-`make dist` builds the Release configuration with ad-hoc signing, zips it into `dist/`, and prints the sha256 and the exact `gh release create` command. It keeps the new `CFBundleVersion` in `BLEUnlock/Info.plist`, which the project's own build phase increments.
+`make dist` 用 ad-hoc 签名编译 Release 配置，打包到 `dist/`，打印 sha256 和完整的 `gh release create` 命令。它保留 `BLEUnlock/Info.plist` 中新的 `CFBundleVersion`，这个值由工程自带的构建阶段自增。
 
-After it runs:
+运行后：
 
-1. Run the printed `gh release create` command. It uploads `dist/BLEUnlock-<version>.zip` under a tag of the form `v<version>-build<number>`.
-2. Update `Casks/bleunlock.rb` in [XiLeePapa/homebrew-tap](https://github.com/XiLeePapa/homebrew-tap) with the new `version`, `sha256`, and the build number the URL is built from.
-3. Commit `BLEUnlock/Info.plist`, so the build number in the repository matches the one you released.
-4. Check the tap from a clean shell:
+1. 执行打印出的 `gh release create` 命令。它把 `dist/BLEUnlock-<version>.zip` 上传到形如 `v<version>-build<number>` 的 tag 下。
+2. 更新 [XiLeePapa/homebrew-tap](https://github.com/XiLeePapa/homebrew-tap) 中 `Casks/bleunlock.rb` 的 `version`、`sha256` 和 URL 中的 build number。
+3. 提交 `BLEUnlock/Info.plist`，让仓库里的 build number 和你发布的版本一致。
+4. 在新 shell 中验证 tap：
 
    ```
    brew update
    brew info --cask xileepapa/tap/bleunlock
    ```
 
-   If Homebrew says the tap is untrusted, run `brew trust xileepapa/tap` first. `brew install` trusts the cask you name, but `brew info` refuses to load an untrusted one.
+   如果 Homebrew 提示 tap 不受信任，先运行 `brew trust xileepapa/tap`。`brew install` 会为你指定的 cask 记录信任，但 `brew info` 拒绝加载不受信任的 tap。
 
-Homebrew verifies the sha256 on every install, so an unchanged cask with a rebuilt zip fails to install.
+Homebrew 每次安装都校验 sha256，所以 cask 没改但 zip 重新打包会导致安装失败。
 
-To refresh the Apple model table before releasing, run:
+发布前刷新 Apple 机型表：
 
 ```
 ./apple-device-names > BLEUnlock/appleDeviceNames.swift
 ```
 
-It reads the CoreTypes bundles of the Mac you run it on, so the table is only as current as that macOS.
+它读取你运行它的 Mac 上的 CoreTypes bundle，所以表的时效取决于那台 Mac 的 macOS 版本。
 
-## Funding
+## 赞助
 
-The annual Apple Developer Program fee is funded by donations. If you like the app, a donation via [Buy Me a Coffee](https://www.buymeacoffee.com/tsone) or [PayPal Me](https://www.paypal.com/paypalme/my/profile) keeps the original author able to maintain it.
+Apple Developer Program 年费靠捐赠维持。如果你喜欢这个 app，可以通过 [Buy Me a Coffee](https://www.buymeacoffee.com/tsone) 或 [PayPal Me](https://www.paypal.com/paypalme/my/profile) 捐赠，帮助原作者继续维护。
 
-## Credits
+## 致谢
 
-- [ts1](https://github.com/ts1): the app, and everything not listed below
-- [peiit](https://github.com/peiit): Chinese translation
-- [wenmin-wu](https://github.com/wenmin-wu): Minimum RSSI and moving average
-- [stephengroat](https://github.com/stephengroat): CI
-- [joeyhoer](https://github.com/joeyhoer): Homebrew Cask
-- [Skyearn](https://github.com/Skyearn): Big Sur style icon
-- [cyberclaus](https://github.com/cyberclaus): German, Swedish, Norwegian (Bokmål) and Danish localizations
-- [alonewolfx2](https://github.com/alonewolfx2): Turkish localization
-- [wernjie](https://github.com/wernjie): Wake without Unlocking
-- [tokfrans03](https://github.com/tokfrans03): Language fixes
+- [ts1](https://github.com/ts1)：app 本身，以及下面未列出的所有内容
+- [peiit](https://github.com/peiit)：中文翻译
+- [wenmin-wu](https://github.com/wenmin-wu)：最小 RSSI 和移动平均
+- [stephengroat](https://github.com/stephengroat)：CI
+- [joeyhoer](https://github.com/joeyhoer)：Homebrew Cask
+- [Skyearn](https://github.com/Skyearn)：Big Sur 风格图标
+- [cyberclaus](https://github.com/cyberclaus)：德语、瑞典语、挪威语（书面语）和丹麦语本地化
+- [alonewolfx2](https://github.com/alonewolfx2)：土耳其语本地化
+- [wernjie](https://github.com/wernjie)：唤醒时不需解锁
+- [tokfrans03](https://github.com/tokfrans03)：语言修正
 
-Icons are based on SVGs from materialdesignicons.com, originally designed by Google LLC under the Apache License version 2.0.
+图标基于 materialdesignicons.com 的 SVG，由 Google LLC 设计，Apache License 2.0 许可。
 
-## License
+## 许可证
 
 MIT
 
