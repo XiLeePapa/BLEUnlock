@@ -1,165 +1,176 @@
 # BLEUnlock
 
-## Please note that I don't distribute this app on the Mac App Store. You can find it here for free! 
+BLEUnlock locks your Mac when you walk away with your iPhone, Apple Watch, or another Bluetooth Low Energy device, and unlocks it when you get back. The app lives in the menu bar, and nothing runs on the phone.
 
-![CI](https://github.com/ts1/BLEUnlock/workflows/CI/badge.svg)
-![Github All Releases](https://img.shields.io/github/downloads/ts1/BLEUnlock/total.svg)
+This repository is a fork of [ts1/BLEUnlock](https://github.com/ts1/BLEUnlock). It keeps the original behaviour, fixes what broke on recent macOS, and adds a few things on top.
+
+![Downloads](https://img.shields.io/github/downloads/XiLeePapa/BLEUnlock/total.svg)
 [![Buy me a coffee](img/buymeacoffee.svg)](https://www.buymeacoffee.com/tsone)
 
-BLEUnlock is a small menu bar utility that locks and unlocks your Mac by proximity of your iPhone, Apple Watch, or any other Bluetooth Low Energy device.
+This document is also available in [Japanese](README.ja.md).
 
-This document is also available in [Japanese (日本語版はこちら)](README.ja.md).
+## What this fork adds
 
-## Features
-
-- No iPhone app is required
-- Works with any BLE devices that periodically transmits signal from [static MAC address](#notes-on-mac-address)
-- Unlocks your Mac for you when the BLE device is near your Mac, without entering password
-- Locks your Mac when the BLE device is away from your Mac
-- Optionally runs your own script upon lock/unlock
-- Optionally wakes from display sleep
-- Optionally pauses and unpauses music/video playback when you're away and back
-- Password is securely stored in Keychain
+- **Device names in the list.** You pick `q phone`, not `197634CD-E57D-64DE-6DE0-26F579277F25`. Recent macOS stopped letting third-party apps read the system's Bluetooth records, and the upstream app lost its names with them. This fork reads the name from the device instead.
+- **A named first menu line.** The line at the top shows which device controls locking and unlocking, next to its signal reading. Before, it only showed the reading.
+- **Your own labels.** Devices that never report a name, which covers most bands, sensors and beacons, can carry a label you type.
+- **Estimated distance.** Each row can show `≈0.5m` beside the dBm reading, from a reference value you calibrate once.
+- **A sorted list.** Opening **Device** orders the list by signal strength, strongest first.
+- **Current Apple hardware.** The model table went from 163 entries to 258, so a model code like `iPhone18,4` reads as `iPhone Air`.
+- **A build that works on modern Xcode.** The deployment target moved from 10.13 to 12.0, which is the lowest Xcode 27 accepts.
 
 ## Requirements
 
 - A Mac with Bluetooth Low Energy support
 - macOS 12 (Monterey) or later
-- iPhone 5s or newer, Apple Watch (all), or another BLE device that has [static MAC address](#notes-on-mac-address) and transmits signal periodically
+- iPhone 5s or newer, Apple Watch (all models), or another BLE device that transmits periodically from a [static MAC address](#address-stability-and-device-names)
 
-## Installation
+## Install
 
-### Using Homebrew Cask
+### Homebrew
 
 ```
-brew install bleunlock
+brew tap xileepapa/tap
+brew install --cask xileepapa/tap/bleunlock
 ```
 
-### Manual installation
+Keep the `xileepapa/tap/` prefix. Plain `bleunlock` resolves to the upstream build in Homebrew's own tap.
 
-Download the zip file from [Releases](https://github.com/ts1/BLEUnlock/releases), unzip and move to the Applications folder.
+Both casks install `/Applications/BLEUnlock.app`. Uninstall the one you are not keeping first, so Homebrew does not find an app it did not install:
 
-## Setting up
+```
+brew uninstall --cask bleunlock
+```
 
-On the first launch, it asks for the following permissions, which you must grant:
+### Download
 
-Permission | Description
------------|---
-Bluetooth | Obviously, Bluetooth access is required. Choose *OK*.
-Accessibility | This is required to unlock the locked screen. Click *Open System Preferences*, click the lock icon on the bottom left to unlock, and turn on BLEUnlock.
-Keychain | (Not always asked) If asked, you have to choose **Always Allow** because it is required while the screen is locked.
-Notification | (Optional) BLEUnlock shows a message on the lock screen when it locks the screen. It is helpful to know if it's working properly. Additionally, to see the message on the lock screen, you need to set *Show previews* to *always* in the *Notification* preference pane. 
+Download `BLEUnlock-1.12.2.zip` from [Releases](https://github.com/XiLeePapa/BLEUnlock/releases), unzip it, and move `BLEUnlock.app` to `/Applications`.
 
-> NOTE: The number of permissions required increases with each version of macOS, so if you are using an older OS, you may not be asked for one or more permissions.
+This build is signed ad-hoc and not notarized. `spctl --assess` rejects it, so macOS blocks the first launch. Open **System Settings → Privacy & Security** and approve BLEUnlock there, then start the app. Later launches need no approval.
 
-Then it asks your login password to unlock the lock screen.
-It will be stored safely in Keychain. 
+To skip that step, build the app yourself. Gatekeeper leaves locally built apps alone. See [Build from source](#build-from-source).
 
-Finally, from the menu bar icon, select *Device*.
-It starts scanning nearby BLE devices.
-Select your device, and you're done!
+## Set up
+
+The first launch asks for several permissions. BLEUnlock cannot do its job without the first three:
+
+| Permission | Why you need to grant it |
+|-----|--------|
+| Bluetooth | Scanning for devices. |
+| Accessibility | Typing your password at the lock screen. Turn BLEUnlock on in **System Settings → Privacy & Security → Accessibility**. |
+| Keychain | Reading the stored password while the screen is locked. Choose **Always Allow**, or the prompt blocks the unlock. |
+| Notifications | Optional. BLEUnlock posts a banner when it locks the screen, which tells you why the Mac just locked. To see it on the lock screen, set **Show previews** to **Always** for BLEUnlock. |
+
+Older macOS versions ask for fewer of these. macOS ties each grant to the app's code signature, so a build signed with a different certificate can ask you again. Replacing the upstream app with this fork is one such case.
+
+BLEUnlock then asks for your login password and stores it in the Keychain. Skip it by setting **Unlock RSSI** to **Disable**, if you only want automatic locking.
+
+To pick your device:
+
+1. Click the menu bar icon, then click **Device**.
+2. Wait for the list to fill up. Your device appears as its name, with its MAC address when the app can resolve one.
+3. Click your device. It gets a check mark, and the first menu line starts showing its signal reading.
+4. Set **Unlock RSSI**, **Lock RSSI**, and **Delay to Lock**. Start from the reading you see when the device is in your pocket and when it is across the room.
 
 ## Options
 
-Option | Description
--------|---
-Lock Screen Now | It locks the screen regardless of whether the BLE device is nearby or not; it will unlock once the BLE device moves away and then moves closer again. This is useful to ensure that the screen is locked before you leave your seat.
-Unlock RSSI | Bluetooth signal strength to unlock. Larger value indicates that the BLE device needs to be closer to the Mac to unlock. Choose *Disable* to disable unlocking.
-Lock RSSI | Bluetooth signal strength to lock. Smaller value indicates that the BLE device needs to be farther away from the Mac to lock. Choose *Disable* to disable locking.
-Delay to Lock | Duration of time before it locks the Mac when it detects that the BLE device is away. If the BLE device comes closer within that time, no lock will occur.
-No-Signal Timeout | Time between last signal reception and locking. If you experience frequent "Signal is lost" locking, increase this value.
-Wake on Proximity | Wakes up the display from sleep when the BLE device approaches while locking.
-Wake without Unlocking | BLEUnlock will not unlock the Mac when the display wakes up from sleep, whether automatically via "Wake on Proximity" or manually. This allows for compatibility with the macOS built-in unlock with Apple Watch feature (which can operate immediately after BLEUnlock wakes the screen), or if you just prefer the lock screen to appear more quickly but don't want it to auto-unlock.
-Pause "Now Playing" while Locked | On lock/unlock, BLEUnlock pauses/unpauses playback of music or video (including Apple Music, QuickTime Player and Spotify) that is controlled by *Now Playing* widget or the ⏯ key on the keyboard.
-Use Screensaver to Lock | If this option is set, BLEUnlock launches screensaver instead of locking. For this option to work properly, you need to set *Require password **immediately** after sleep or screen saver begins* option in *Security & Privacy* preference pane.
-Turn Off Screen on Lock | Turn off the display immediately when locking.
-Set Password... | If you changed your login password, use this.
-Passive Mode | By default it actively tries to connect to the BLE device and read the RSSI. Most of the time, the default is recommended and works stably. However, if you are using other Bluetooth things like keyboard, mouse, track pad or most notably Bluetooth Personal Hotspot, the default mode may interfere with each other. 2.4GHz WiFi may interfere as well. If you are experiencing instability of Bluetooth, turn on Passive Mode.
-Launch at Login | Launches BLEUnlock when you login.
-Set Minimum RSSI | Devices with RSSI below this value will not be displayed in the device scan list.
-Show Estimated Distance | Adds a rough distance to each device, such as `-52dBm ≈0.5m`. It is computed from the RSSI, so it is a guide and not a measurement; the lock and unlock thresholds stay in dBm.
-Set 1m Reference RSSI… | The RSSI a device has when it is exactly one meter away, used only for the distance estimate above. Typical values are -50 to -70 dBm. iBeacons carry this value themselves and ignore it.
-Rename Selected Device… | Give the selected device a name of your own, shown in the device list and on the first menu line. This is the only way to label devices that never report a name (many bands, sensors and beacons).
+| Option | Description |
+|-------|-------------|
+| Lock Screen Now | Locks the screen even if the device is nearby. It unlocks again once the device moves away and comes back. Useful before you leave your seat. |
+| Unlock RSSI | Signal strength needed to unlock. A larger value means the device has to be closer. Choose **Disable** to never unlock automatically. |
+| Lock RSSI | Signal strength that counts as away. A smaller value means the device has to be farther away before locking. Choose **Disable** to never lock automatically. |
+| Delay to Lock | How long the device has to be away before the Mac locks. If the device comes back within that time, nothing happens. |
+| No-Signal Timeout | How long BLEUnlock waits between the last signal and locking. Raise it if "Signal is lost" locks happen too often. |
+| Wake on Proximity | Wakes the display from sleep when the device approaches while the screen is locked. |
+| Wake without Unlocking | BLEUnlock does not unlock when the display wakes, whether **Wake on Proximity** woke it or you did. Use it with the built-in Apple Watch unlock, or if you want the lock screen to appear sooner. |
+| Pause "Now Playing" while Locked | Pauses and resumes the music or video that the **Now Playing** widget or the ⏯ key controls, on lock and unlock. |
+| Use Screensaver to Lock | Starts the screensaver instead of locking. Set **Require password immediately after sleep or screen saver begins** in **System Settings → Privacy & Security** so the screensaver really locks the session. |
+| Turn Off Screen on Lock | Turns the display off as soon as it locks. |
+| Set Password… | Stores a new login password, after you change it. |
+| Passive Mode | Reads the signal from advertisements only, and never connects to the device. The default mode connects and reads the signal directly, which is steadier. Turn on Passive Mode if a Bluetooth keyboard, mouse, trackpad, or Personal Hotspot misbehaves. 2.4 GHz Wi-Fi can cause the same interference. |
+| Launch at Login | Starts BLEUnlock when you log in. |
+| Set Minimum RSSI | Hides devices weaker than this value from the scan list. |
+| Show Estimated Distance | Adds a distance to each device, such as `q phone (-52dBm ≈0.5m)`. The distance comes from the signal reading, so treat it as a guide. Thresholds stay in dBm. |
+| Set 1m Reference RSSI… | The signal a device shows at exactly one meter, used only for the estimate. Typical values are -50 to -70 dBm. Raising it makes estimates larger, lowering it makes them smaller. iBeacons carry this value themselves and ignore the setting. |
+| Rename Selected Device… | Labels the selected device with a name you choose, shown in the list and on the first menu line. Leave the field empty to go back to the name the device reports. |
 
 ## Troubleshooting
 
-### Can't find my device in the list
+### The name of a device did not update
 
-BLEUnlock displays the name a device has for itself: the name you set on the device (on iPhone, *Settings > General > About > Name*), or the name the device puts in its Bluetooth advertisement.
-Both are taken from the device itself, because recent macOS releases no longer let third-party apps read device names from the system's own Bluetooth records.
-The name of the selected device is also shown on the first line of the menu, together with the signal strength.
+macOS caches the name a Bluetooth device reports. Renaming an iPhone under **Settings → General → About** does not reach the Mac just because BLEUnlock rescans. The app reads the same cached value each time. Turn Bluetooth off and on again, on the iPhone or on the Mac, and wait for the device to reappear. If the old name sticks, label it yourself with **Rename Selected Device…**.
 
-If a device has no name to offer, it is displayed as a UUID (long hexadecimal numbers and hyphens).
-To label such a device anyway, select it and use *Rename Selected Device…*: your own name is then shown in the list and on the first menu line, and it survives the device changing its address.
-To identify the device, try moving the device closer to or farther away from the Mac and see if the RSSI (dB value) changes accordingly.
+### My device shows a UUID
 
-If you don't see *any* device in the list, try resetting the Bluetooth module as described below.
+BLEUnlock picks the first label it can find, in this order:
 
-### It fails to unlock
+1. The name you set with **Rename Selected Device…**
+2. The name CoreBluetooth reports for the device
+3. The name macOS 12 and older recorded for it
+4. The Local Name in the device's advertisement
+5. The model the device reports over GATT, translated through `BLEUnlock/appleDeviceNames.swift`
+6. An iBeacon label, for beacons that carry a proximity UUID
+7. The MAC address
+8. The CoreBluetooth UUID
 
-Make sure BLEUnlock is turned on in *System Preferences* > *Security & Privacy* > *Privacy* > *Accessibility*.
-If it is already on, try turning it off and on again.
+A name of just `iPhone` or `iPad` counts as no name, so step 5 gets its chance first. A row that ends at the UUID told the app nothing it could use, so give it your own label with **Rename Selected Device…**.
 
-If it asks for permission to access its own password in Keychain, you must choose *Always Allow*, because it is needed while the screen is locked.
+Labels are stored per CoreBluetooth device identifier, which stays put while the device keeps its address. A device that rotates a private address looks like a new device, so it needs a new label. See [Address stability and device names](#address-stability-and-device-names).
 
-### "Signal is lost" occurs frequently
+If your device is a non-Apple product that does not advertise a name, BLEUnlock cannot know what it is. Move it closer to and farther from the Mac and watch which row's dBm value follows.
 
-Increase *No-Signal Timeout*.
-Or try *Passive Mode*.
+### I don't see any device at all
 
-### My Bluetooth keyboard, mouse, Personal Hotspot, or whatever Bluetooth, went nuts!
+Reset the Bluetooth module. Hold Shift and Option and click the Bluetooth icon in the menu bar, then click **Reset the Bluetooth module**.
 
-Firstly, Shift + Option + Click the Bluetooth icon in the menubar or Control Center, then click *Reset the Bluetooth module*.
-
-In macOS 12 Monterey, this option is no longer available.
-Instead, type the command below in Terminal to reset the Bluetooth module:
+macOS 12 (Monterey) removed that item. Run this instead, and enter your login password:
 
 ```
 sudo pkill bluetoothd
 ```
 
-This command will ask your login password.
+If the list stays empty, turn on **Passive Mode**.
 
-If the problem persists, turn on *Passive Mode*.
+### It fails to unlock
 
-## Notes on MAC address
+Turn BLEUnlock off and on again in **System Settings → Privacy & Security → Accessibility**. Turning it off and on again fixes a grant that macOS stopped trusting.
 
-Unlike classic Bluetooth, Bluetooth Low Energy devices can use *private* MAC address.
-That private address can be random, and can be changed from time to time.
+If it asks to read its own password in the Keychain, choose **Always Allow**. The screen is locked at that moment, so nobody can answer a prompt.
 
-Recent smart devices, both iOS and Android, tend to use private addresses that change every 15 minutes or so. This is probably to prevent tracking.
+### "Signal is lost" occurs frequently
 
-On the other hand, in order for BLEUnlock to track your device, its MAC address must be static.
+Raise **No-Signal Timeout**, or turn on **Passive Mode**.
 
-Fortunately, on Apple devices, if you are signed in with the same Apple ID as your Mac, the MAC address is resolved to the true (public) address.
+### My Bluetooth keyboard, mouse, or Personal Hotspot went nuts
 
-For other devices, including Android, the way to resolve the address is unknown.
-If your non-Apple device changes its MAC address over time, unfortunately BLEUnlock can't support it.
+Reset the Bluetooth module as described above, then turn on **Passive Mode**. The default mode holds a connection to your device, and that connection competes with other Bluetooth traffic.
 
-To check if the MAC address is resolved correctly, compare the MAC address displayed in the *Device* scan list of BLEUnlock with the one that is displayed on your device.
+### Launchpad shows two BLEUnlock icons
 
-## Run script on lock/unlock
+Two copies of the app exist on disk, usually one in `/Applications` and one under `build/dd`. Running `make build` removes the built copy for this reason. To fix a leftover, delete the copy under `build/dd` and relaunch from `/Applications`.
 
-On locking and unlocking, BLEUnlock runs a script located here:
+## Run a script on lock and unlock
+
+On lock and unlock, BLEUnlock runs this script:
 
 ```
 ~/Library/Application Scripts/jp.sone.BLEUnlock/event
 ```
 
-An argument is passed depending on the type of event:
+It passes the event type as the first argument:
 
-|Event|Argument|
+| Event | Argument |
 |-----|--------|
-|Locked by BLEUnlock because of low RSSI|`away`|
-|Locked by BLEUnlock because of no signal|`lost`|
-|Unlocked by BLEUnlock|`unlocked`|
-|Unlocked manually|`intruded`|
+| Locked because the signal dropped below **Lock RSSI** | `away` |
+| Locked because no signal arrived within **No-Signal Timeout** | `lost` |
+| Unlocked by BLEUnlock | `unlocked` |
+| Unlocked by hand | `intruded` |
 
-> NOTE: for `intruded` event works properly, you have to set *Require password **immediately** after sleep* in *Security & Privacy* preference pane.
+For `intruded` to work, set **Require password immediately after sleep** in **System Settings → Privacy & Security**.
 
 ### Example
 
-Here is an example script which sends a LINE Notify message, with a photo of the person in front of the Mac when it is unlocked manually.
+This script sends a LINE Notify message, with a photo of whoever unlocked the Mac by hand:
 
 ```sh
 #!/bin/bash
@@ -201,23 +212,73 @@ case $1 in
 esac
 ```
 
-`SnapshotUnlocker` is an .app created with Script Editor with this script:
+`SnapshotUnlocker` is an app made in Script Editor from this line:
 
 ```
 do shell script "/usr/local/bin/ffmpeg -f avfoundation -r 30 -i 0 -frames:v 1 -y /tmp/unlock-$(date +%Y%m%d_%H%M%S).jpg"
 ```
 
-This app is required because BLEUnlock does not have Camera permission.
-Giving permission to this app resolves the problem.
+The extra app exists because BLEUnlock has no Camera permission. Granting permission to `SnapshotUnlocker` gets around that.
+
+## Address stability and device names
+
+Unlike classic Bluetooth, BLE devices can use a private MAC address, and that address can be random and change over time. Phones, both iPhone and Android, now rotate such addresses every 15 minutes or so, to make tracking harder.
+
+BLEUnlock can only track a device whose address stays put, because it measures distance from the signal of one identifiable radio. On Apple devices signed in to the same Apple ID as the Mac, the address resolves to the true public one. For other vendors there is no way to resolve it, so a device that rotates its address cannot be supported.
+
+To check whether an address resolves, compare the MAC address in the BLEUnlock **Device** list with the one your device shows.
+
+Names come from the same source as the address, which is why they broke. Through macOS 12, BLEUnlock read names from the system's own Bluetooth records: the SQLite databases under `/Library/Bluetooth`, and the caches in `/Library/Preferences/com.apple.Bluetooth.plist`. Recent macOS either keeps those from third-party apps or stopped writing them. So the app asks the device instead. CoreBluetooth reports the name the device uses for itself, which on an iPhone is what you set under **Settings → General → About**. A device that publishes a Local Name in its advertisement is read from there. When both come back empty, the app falls back to the model number GATT exposes, and translates it through `BLEUnlock/appleDeviceNames.swift`.
+
+The distance estimate works the other way, from signal to space. It treats the radio as free space with a path loss exponent of 2, so every 6 dB of signal lost doubles the estimate. Walls, a pocket, and how you hold the device all move the reading by more than that, which is why the thresholds stay in dBm.
+
+## Build from source
+
+You need Xcode. The Command Line Tools are not enough, because the app compiles `MainMenu.xib` with `ibtool` and `Images.xcassets` with `actool`, and neither ships with them.
+
+```
+make build     # compile, then remove the built .app so Launchpad sees only one copy
+make deploy    # compile Debug, replace /Applications/BLEUnlock.app, and start it
+make clean     # delete build output
+```
+
+`make deploy` signs ad-hoc, like the release build, but a locally built app carries no download quarantine, so Gatekeeper never asks about it.
+
+## Publish a release
+
+`make dist` builds the Release configuration with ad-hoc signing, zips it into `dist/`, and prints the sha256 and the exact `gh release create` command. It keeps the new `CFBundleVersion` in `BLEUnlock/Info.plist`, which the project's own build phase increments.
+
+After it runs:
+
+1. Run the printed `gh release create` command. It uploads `dist/BLEUnlock-<version>.zip` under a tag of the form `v<version>-build<number>`.
+2. Update `Casks/bleunlock.rb` in [XiLeePapa/homebrew-tap](https://github.com/XiLeePapa/homebrew-tap) with the new `version`, `sha256`, and the build number the URL is built from.
+3. Commit `BLEUnlock/Info.plist` and the tag's release notes.
+4. Check the tap from a clean shell:
+
+   ```
+   brew update
+   brew info --cask xileepapa/tap/bleunlock
+   ```
+
+   If Homebrew says the tap is untrusted, run `brew trust xileepapa/tap` first. `brew install` trusts the cask you name, but `brew info` refuses to load an untrusted one.
+
+Homebrew verifies the sha256 on every install, so an unchanged cask with a rebuilt zip fails to install.
+
+To refresh the Apple model table before releasing, run:
+
+```
+./apple-device-names > BLEUnlock/appleDeviceNames.swift
+```
+
+It reads the CoreTypes bundles of the Mac you run it on, so the table is only as current as that macOS.
 
 ## Funding
 
-The annual Apple Developer Program fee is funded by donations.
-
-If you like this app, I'd appreciate it if you could make a donation via [Buy Me a Coffee](https://www.buymeacoffee.com/tsone) or [PayPal Me](https://www.paypal.com/paypalme/my/profile) so I can keep up.
+The annual Apple Developer Program fee is funded by donations. If you like the app, a donation via [Buy Me a Coffee](https://www.buymeacoffee.com/tsone) or [PayPal Me](https://www.paypal.com/paypalme/my/profile) keeps the original author able to maintain it.
 
 ## Credits
 
+- [ts1](https://github.com/ts1): the app, and everything not listed below
 - [peiit](https://github.com/peiit): Chinese translation
 - [wenmin-wu](https://github.com/wenmin-wu): Minimum RSSI and moving average
 - [stephengroat](https://github.com/stephengroat): CI
@@ -228,9 +289,7 @@ If you like this app, I'd appreciate it if you could make a donation via [Buy Me
 - [wernjie](https://github.com/wernjie): Wake without Unlocking
 - [tokfrans03](https://github.com/tokfrans03): Language fixes
 
-
-Icons are based on SVGs downloaded from materialdesignicons.com.
-They are originally designed by Google LLC and licensed under Apache License version 2.0.
+Icons are based on SVGs from materialdesignicons.com, originally designed by Google LLC under the Apache License version 2.0.
 
 ## License
 
