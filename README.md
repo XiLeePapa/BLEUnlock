@@ -224,13 +224,13 @@ The extra app exists because BLEUnlock has no Camera permission. Granting permis
 
 Unlike classic Bluetooth, BLE devices can use a private MAC address, and that address can be random and change over time. Phones, both iPhone and Android, now rotate such addresses every 15 minutes or so, to make tracking harder.
 
-BLEUnlock can only track a device whose address stays put, because it measures distance from the signal of one identifiable radio. On Apple devices signed in to the same Apple ID as the Mac, the address resolves to the true public one. For other vendors there is no way to resolve it, so a device that rotates its address cannot be supported.
+BLEUnlock can only track a device whose address stays put, because it follows the signal of one specific radio. On Apple devices signed in to the same Apple ID as the Mac, the address resolves to the true public one. For other vendors there is no way to resolve it, so a device that rotates its address cannot be supported.
 
 To check whether an address resolves, compare the MAC address in the BLEUnlock **Device** list with the one your device shows.
 
 Names come from the same source as the address, which is why they broke. Through macOS 12, BLEUnlock read names from the system's own Bluetooth records: the SQLite databases under `/Library/Bluetooth`, and the caches in `/Library/Preferences/com.apple.Bluetooth.plist`. Recent macOS either keeps those from third-party apps or stopped writing them. So the app asks the device instead. CoreBluetooth reports the name the device uses for itself, which on an iPhone is what you set under **Settings → General → About**. A device that publishes a Local Name in its advertisement is read from there. When both come back empty, the app falls back to the model number GATT exposes, and translates it through `BLEUnlock/appleDeviceNames.swift`.
 
-The distance estimate works the other way, from signal to space. It treats the radio as free space with a path loss exponent of 2, so every 6 dB of signal lost doubles the estimate. Walls, a pocket, and how you hold the device all move the reading by more than that, which is why the thresholds stay in dBm.
+The distance estimate works the other way, from signal to space. It models the space between the two radios as free space, with a path loss exponent of 2, so every 6 dB of signal lost doubles the estimate. Walls, a pocket, and how you hold the device all move the reading by more than that, which is why the thresholds stay in dBm.
 
 ## Build from source
 
@@ -252,7 +252,7 @@ After it runs:
 
 1. Run the printed `gh release create` command. It uploads `dist/BLEUnlock-<version>.zip` under a tag of the form `v<version>-build<number>`.
 2. Update `Casks/bleunlock.rb` in [XiLeePapa/homebrew-tap](https://github.com/XiLeePapa/homebrew-tap) with the new `version`, `sha256`, and the build number the URL is built from.
-3. Commit `BLEUnlock/Info.plist` and the tag's release notes.
+3. Commit `BLEUnlock/Info.plist`, so the build number in the repository matches the one you released.
 4. Check the tap from a clean shell:
 
    ```
