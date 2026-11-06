@@ -58,3 +58,4 @@ fastlane/screenshots
 
 # Release zips built by `make dist`
 /dist
+.idea/
