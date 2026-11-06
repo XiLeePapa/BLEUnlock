@@ -44,7 +44,7 @@ brew uninstall --cask bleunlock
 
 ### Download
 
-Download `BLEUnlock-1.12.2.zip` from [Releases](https://github.com/XiLeePapa/BLEUnlock/releases), unzip it, and move `BLEUnlock.app` to `/Applications`.
+Download `BLEUnlock-1.13.0.zip` from [Releases](https://github.com/XiLeePapa/BLEUnlock/releases), unzip it, and move `BLEUnlock.app` to `/Applications`.
 
 This build is signed ad-hoc and not notarized. `spctl --assess` rejects it, so macOS blocks the first launch. Open **System Settings → Privacy & Security** and approve BLEUnlock there, then start the app. Later launches need no approval.
 
