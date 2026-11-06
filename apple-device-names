@@ -1,34 +1,47 @@
 #!/usr/bin/env python3
-import re, json
+"""Regenerate BLEUnlock/appleDeviceNames.swift from the model codes the local macOS knows.
+
+  ./apple-device-names > BLEUnlock/appleDeviceNames.swift
+
+Sources are the CoreTypes MobileDevices bundles, so the table is only as new as the macOS
+it is run on. Items that carry no human-readable name are skipped instead of aborting the run.
+"""
+import re
+import json
+import subprocess
 from glob import glob
-from subprocess import Popen, PIPE
 
 mapping = {}
 
+
 def parse_info(filename):
-    p = Popen([
-        'plutil',
-        '-convert', 'json',
-        f,
-        '-o', '-'
-    ], stdout=PIPE)
+    out = subprocess.run(
+        ['plutil', '-convert', 'json', '-o', '-', filename],
+        check=True, capture_output=True).stdout
+    data = json.loads(out)
 
-    data = json.load(p.stdout)
+    for item in data.get('UTExportedTypeDeclarations', []):
+        name = item.get('UTTypeDescription')
+        if not name:
+            continue
+        codes = item.get('UTTypeTagSpecification', {}).get('com.apple.device-model-code', [])
+        if isinstance(codes, str):
+            codes = [codes]
+        for code in codes:
+            if not re.match(r'^[a-zA-Z]+\d+,\d+$', code):
+                continue
+            # Drop the "Model A2482, A2645" part and any bracket left empty by it.
+            name_clean = re.sub(r'Model A?\d+(, A?\d+)*', '', name)
+            name_clean = re.sub(r' *?\)', ')', name_clean)
+            name_clean = re.sub(r' \(\)', '', name_clean).strip()
+            if name_clean:
+                mapping[code] = name_clean
 
-    for item in data['UTExportedTypeDeclarations']:
-        if 'UTTypeTagSpecification' not in item: continue
-        for code in item['UTTypeTagSpecification']['com.apple.device-model-code']:
-            if re.match(r'^[a-zA-Z]+\d+,\d+$', code):
-                name = item['UTTypeDescription']
-                name = re.sub(r'Model A?\d+(, A?\d+)*', '', name)
-                name = re.sub(r' *?\)', ')', name)
-                name = re.sub(r' \(\)', '', name)
-                mapping[code] = name
 
-for f in glob('/System/Library/CoreServices/CoreTypes.bundle/Contents/Library/MobileDevices*.bundle/Contents/Info.plist'):
+for f in sorted(glob('/System/Library/CoreServices/CoreTypes.bundle/Contents/Library/MobileDevices*.bundle/Contents/Info.plist')):
     parse_info(f)
 
 print('let appleDeviceNames = [')
-for code, name in mapping.items():
-    print(f'    "{code}": "{name}",')
+for code in sorted(mapping):
+    print(f'    "{code}": "{mapping[code]}",')
 print(']')

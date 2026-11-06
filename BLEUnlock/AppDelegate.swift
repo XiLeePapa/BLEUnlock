@@ -18,7 +18,25 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     let lockDelayMenu = NSMenu()
     var deviceDict: [UUID: NSMenuItem] = [:]
     var monitorMenuItem : NSMenuItem?
+    // Signal state of the monitored device, nil while no device is selected.
+    var monitorStatus: String? = nil
+    // Name of the monitored device, kept in prefs so that the top menu line can tell which
+    // device locks and unlocks the Mac even before that device shows up in a scan.
+    var monitoredDeviceName: String? = nil {
+        didSet {
+            if let name = monitoredDeviceName, name != prefs.string(forKey: "deviceName") {
+                prefs.set(name, forKey: "deviceName")
+            }
+            updateMonitorTitle()
+        }
+    }
     let prefs = UserDefaults.standard
+    // RSSI is a logarithmic power reading, not a distance. Showing an estimate needs the RSSI a
+    // device has exactly 1 m away: iBeacons advertise it per device, everything else uses this
+    // calibration. -60 dBm is a typical phone/laptop at 1 m; adjust it if the estimates look off.
+    var referenceRSSI1m = -60
+    var showDistance = true
+    var renameMenuItem: NSMenuItem?
     var displaySleep = false
     var systemSleep = false
     var connected = false
@@ -34,6 +52,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     func menuWillOpen(_ menu: NSMenu) {
         if menu == deviceMenu {
             ble.startScanning()
+            sortDeviceMenuByRSSI()
         } else if menu == lockRSSIMenu {
             for item in menu.items {
                 if item.tag == ble.lockRSSI {
@@ -74,6 +93,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
             return menuItem.tag <= ble.unlockRSSI
         } else if menuItem.menu == unlockRSSIMenu {
             return menuItem.tag >= ble.lockRSSI
+        } else if menuItem == renameMenuItem {
+            // A name belongs to a device, and there is nothing to name before one is selected.
+            return ble.monitoredUUID != nil
         }
         return true
     }
@@ -84,28 +106,121 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         }
     }
     
-    func menuItemTitle(device: Device) -> String {
-        var desc : String!
+    // A name the user typed for a device. It wins over anything the device or the system
+    // reports, and it is the only way to label devices that advertise no name at all: plenty of
+    // bands, sensors and beacons do exactly that, and they also change their address.
+    func deviceAliases() -> [String: String] {
+        return prefs.dictionary(forKey: "deviceNames") as? [String: String] ?? [:]
+    }
+
+    func deviceAlias(_ uuid: UUID) -> String? {
+        return deviceAliases()[uuid.uuidString]
+    }
+
+    func setDeviceAlias(_ name: String?, for uuid: UUID) {
+        var aliases = deviceAliases()
+        if let name = name {
+            aliases[uuid.uuidString] = name
+        } else {
+            aliases.removeValue(forKey: uuid.uuidString)
+        }
+        prefs.set(aliases, forKey: "deviceNames")
+    }
+
+    func displayName(for device: Device) -> String {
+        return deviceAlias(device.uuid) ?? device.description
+    }
+
+    // Free-space path loss with exponent 2, the same model the iBeacon label uses: every 6 dB of
+    // signal lost doubles the estimate. It is an estimate, not a measurement.
+    func estimatedDistance(rssi: Int, reference: Int?) -> Double {
+        return pow(10.0, Double((reference ?? referenceRSSI1m) - rssi) / 20.0)
+    }
+
+    func distanceText(rssi: Int, reference: Int?) -> String {
+        guard showDistance else { return "" }
+        return String(format: " ≈%.1fm", estimatedDistance(rssi: rssi, reference: reference))
+    }
+
+    // Reference RSSI at 1 m for the device we monitor, when it advertises one.
+    func monitoredReferenceRSSI() -> Int? {
+        guard let uuid = ble.monitoredUUID else { return nil }
+        return ble.devices[uuid]?.referenceRSSI1m
+    }
+
+    func refreshDeviceRows() {
+        for (uuid, item) in deviceDict {
+            if let device = ble.devices[uuid] {
+                item.title = menuItemTitle(device: device)
+            }
+        }
+    }
+
+    // Reorder the device submenu so the strongest signal is at the top. Only called when the
+    // menu opens, not on every RSSI update, so the list doesn't jump around while you read it.
+    func sortDeviceMenuByRSSI() {
+        let sorted = deviceDict.sorted { lhs, rhs in
+            let rssiL = ble.devices[lhs.key]?.rssi ?? Int.min
+            let rssiR = ble.devices[rhs.key]?.rssi ?? Int.min
+            return rssiL > rssiR
+        }
+        // Remove all device items (keep the "Scanning…" header at index 0).
+        let scanningItem = deviceMenu.item(at: 0)
+        deviceMenu.removeAllItems()
+        if let s = scanningItem { deviceMenu.addItem(s) }
+        for (_, item) in sorted {
+            deviceMenu.addItem(item)
+        }
+    }
+
+    func updateMonitorTitle() {
+        guard let item = monitorMenuItem else { return }
+        let status = monitorStatus ?? t("device_not_set")
+        if let name = monitoredDeviceName, monitorStatus != nil {
+            item.title = String(format: "%@ %@", name, status)
+        } else {
+            item.title = status
+        }
+    }
+
+    func menuItemTitle(device: Device, name: String? = nil) -> String {
+        // Resolving the name also resolves the MAC address, so ask for the name before reading
+        // device.macAddr: otherwise the row would show the name without the MAC until the next
+        // update. Callers that already resolved it pass it in, since resolution costs a couple
+        // of file/SQLite lookups on macOS 12 and older.
+        let name = name ?? displayName(for: device)
+        let signal = String(format: "%ddBm%@", device.rssi,
+                            distanceText(rssi: device.rssi, reference: device.referenceRSSI1m))
         if let mac = device.macAddr {
             let prettifiedMac = mac.replacingOccurrences(of: "-", with: ":").uppercased()
-            desc = String(format: "%@ (%@)", device.description, prettifiedMac)
-        } else {
-            desc = device.description
+            return String(format: "%@ (%@) (%@)", name, prettifiedMac, signal)
         }
-        return String(format: "%@ (%ddBm)", desc, device.rssi)
+        return String(format: "%@ (%@)", name, signal)
     }
     
     func newDevice(device: Device) {
-        let menuItem = deviceMenu.addItem(withTitle: menuItemTitle(device: device), action:#selector(selectDevice), keyEquivalent: "")
+        let name = displayName(for: device)
+        let menuItem = deviceMenu.addItem(withTitle: menuItemTitle(device: device, name: name), action:#selector(selectDevice), keyEquivalent: "")
         deviceDict[device.uuid] = menuItem
         if (device.uuid == ble.monitoredUUID) {
             menuItem.state = .on
+            if monitoredDeviceName == nil {
+                monitoredDeviceName = name
+            }
         }
     }
     
     func updateDevice(device: Device) {
+        let name = displayName(for: device)
         if let menu = deviceDict[device.uuid] {
-            menu.title = menuItemTitle(device: device)
+            menu.title = menuItemTitle(device: device, name: name)
+        }
+        if device.uuid == ble.monitoredUUID {
+            // A better name may have turned up since the device was selected (scan response,
+            // GATT manufacturer/model, or the device simply coming into range for the first time).
+            if name != monitoredDeviceName {
+                monitoredDeviceName = name
+            }
         }
     }
     
@@ -117,20 +232,30 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     }
 
     func updateRSSI(rssi: Int?, active: Bool) {
+        // The device keeps advertising while we monitor it, even when the device list is closed,
+        // so CoreBluetooth's own name for the monitored peripheral is the cheapest way to label
+        // the top line. Only take it while nothing better is known: a name that comes out of the
+        // device list, or that the user selected, wins and is never overwritten from here.
+        if monitoredDeviceName == nil,
+           let name = ble.monitoredPeripheral?.name?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !name.isEmpty {
+            monitoredDeviceName = name
+        }
         if let r = rssi {
             lastRSSI = r
-            monitorMenuItem?.title = String(format:"%ddBm", r) + (active ? " (Active)" : "")
+            monitorStatus = String(format:"%ddBm%@", r, distanceText(rssi: r, reference: monitoredReferenceRSSI())) + (active ? " (Active)" : "")
             if (!connected) {
                 connected = true
                 statusItem.button?.image = NSImage(named: "StatusBarConnected")
             }
         } else {
-            monitorMenuItem?.title = t("not_detected")
+            monitorStatus = t("not_detected")
             if (connected) {
                 connected = false
                 statusItem.button?.image = NSImage(named: "StatusBarDisconnected")
             }
         }
+        updateMonitorTitle()
     }
 
     func bluetoothPowerWarn() {
@@ -370,6 +495,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
             if menuItem == item {
                 monitorDevice(uuid: uuid)
                 prefs.set(uuid.uuidString, forKey: "device")
+                monitoredDeviceName = ble.devices[uuid].map { displayName(for: $0) }
                 menuItem.state = .on
             } else {
                 menuItem.state = .off
@@ -380,7 +506,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     func monitorDevice(uuid: UUID) {
         connected = false
         statusItem.button?.image = NSImage(named: "StatusBarDisconnected")
-        monitorMenuItem?.title = t("not_detected")
+        monitorStatus = t("not_detected")
+        updateMonitorTitle()
         ble.startMonitor(uuid: uuid)
     }
 
@@ -482,6 +609,67 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
             ble.thresholdRSSI = Int(val)
             prefs.set(val, forKey: "thresholdRSSI")
         }
+    }
+
+    @objc func toggleShowDistance(_ menuItem: NSMenuItem) {
+        let value = !showDistance
+        showDistance = value
+        prefs.set(value, forKey: "showDistance")
+        menuItem.state = value ? .on : .off
+        refreshDeviceRows()
+        updateMonitorTitle()
+    }
+
+    @objc func setDistanceReference() {
+        let msg = NSAlert()
+        msg.addButton(withTitle: t("ok"))
+        msg.addButton(withTitle: t("cancel"))
+        msg.messageText = t("set_distance_reference")
+        msg.informativeText = t("set_distance_reference_info")
+        msg.window.title = "BLEUnlock"
+
+        let txt = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 20))
+        txt.stringValue = String(referenceRSSI1m)
+        msg.accessoryView = txt
+        txt.becomeFirstResponder()
+        NSApp.activate(ignoringOtherApps: true)
+        guard msg.runModal() == .alertFirstButtonReturn else { return }
+
+        // Anything that is not a negative dBm is either a typo or meaningless as a 1 m reference,
+        // so keep the current calibration rather than showing nonsense distances.
+        let value = Int(txt.intValue)
+        guard value < 0 else { return }
+        referenceRSSI1m = value
+        prefs.set(value, forKey: "referenceRSSI")
+        refreshDeviceRows()
+        updateMonitorTitle()
+    }
+
+    @objc func renameSelectedDevice() {
+        guard let uuid = ble.monitoredUUID else { return }
+        let msg = NSAlert()
+        msg.addButton(withTitle: t("ok"))
+        msg.addButton(withTitle: t("cancel"))
+        msg.messageText = t("rename_device")
+        msg.informativeText = t("rename_device_info")
+        msg.window.title = "BLEUnlock"
+
+        let txt = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 20))
+        txt.stringValue = deviceAlias(uuid) ?? monitoredDeviceName ?? ""
+        msg.accessoryView = txt
+        txt.becomeFirstResponder()
+        NSApp.activate(ignoringOtherApps: true)
+        guard msg.runModal() == .alertFirstButtonReturn else { return }
+
+        let name = txt.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        setDeviceAlias(name.isEmpty ? nil : name, for: uuid)
+        // Empty means "back to whatever the device calls itself".
+        if let device = ble.devices[uuid] {
+            updateDevice(device: device)
+        } else {
+            monitoredDeviceName = name.isEmpty ? ble.monitoredPeripheral?.name : name
+        }
+        refreshDeviceRows()
     }
 
     @objc func toggleWakeOnProximity(_ menuItem: NSMenuItem) {
@@ -654,6 +842,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         mainMenu.addItem(withTitle: t("set_rssi_threshold"), action: #selector(setRSSIThreshold),
                          keyEquivalent: "")
 
+        item = mainMenu.addItem(withTitle: t("show_distance"), action: #selector(toggleShowDistance),
+                         keyEquivalent: "")
+        item.state = showDistance ? .on : .off
+
+        mainMenu.addItem(withTitle: t("set_distance_reference"), action: #selector(setDistanceReference),
+                         keyEquivalent: "")
+
+        renameMenuItem = mainMenu.addItem(withTitle: t("rename_device"), action: #selector(renameSelectedDevice),
+                         keyEquivalent: "")
+
         mainMenu.addItem(NSMenuItem.separator())
         mainMenu.addItem(withTitle: t("about"), action: #selector(showAboutBox), keyEquivalent: "")
         mainMenu.addItem(NSMenuItem.separator())
@@ -674,6 +872,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
     }
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
+        // Read these before the menu is built, so the new toggle starts in the saved state.
+        if prefs.object(forKey: "showDistance") != nil {
+            showDistance = prefs.bool(forKey: "showDistance")
+        }
+        let referenceRSSI = prefs.integer(forKey: "referenceRSSI")
+        if referenceRSSI != 0 {
+            referenceRSSI1m = referenceRSSI
+        }
+
         if let button = statusItem.button {
             button.image = NSImage(named: "StatusBarDisconnected")
             constructMenu()
@@ -681,6 +888,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSMenuItemVa
         ble.delegate = self
         if let str = prefs.string(forKey: "device") {
             if let uuid = UUID(uuidString: str) {
+                monitoredDeviceName = prefs.string(forKey: "deviceName")
                 monitorDevice(uuid: uuid)
             }
         }

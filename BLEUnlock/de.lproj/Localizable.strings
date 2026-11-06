@@ -26,10 +26,15 @@
 "password_not_set" = "Kein Passwort gesetzt.";
 "pause_now_playing" = "Pause \"Spielt jetzt\" während der Sperre";
 "quit" = "BLEUnlock beenden";
+"rename_device" = "Ausgewähltes Gerät umbenennen …";
+"rename_device_info" = "Dieser Name ersetzt in der Liste den vom Gerät gemeldeten Namen. Leer zurück zum Original.";
 "scanning" = "Scanning";
 "seconds" = "seconds";
+"set_distance_reference" = "Referenz-RSSI auf 1 m festlegen …";
+"set_distance_reference_info" = "Der RSSI-Wert eines Geräts in genau einem Meter Abstand, nur für die Entfernungsangabe. Üblich sind -50 bis -70 dBm. Größere Werte (näher an 0) vergrößern die Schätzung, kleinere verkleinern sie. Sperr-/Entsperr-Schwellen bleiben in dBm.";
 "set_password" = "Passwort setzen…";
 "set_rssi_threshold" = "Setze Minimum RSSI…";
+"show_distance" = "Geschätzte Entfernung anzeigen";
 "sleep_display" = "Bildschirm beim Sperren ausschalten";
 "timeout" = "Kein-Signal Zeitablauf";
 "unlock_rssi" = "RSSI entsperren";

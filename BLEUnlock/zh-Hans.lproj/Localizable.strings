@@ -26,10 +26,15 @@
 "password_not_set" = "密码未设置。";
 "pause_now_playing" = "锁定时暂停\"播放中\"";
 "quit" = "退出BLEUnlock";
+"rename_device" = "重命名所选设备…";
+"rename_device_info" = "设备列表优先显示这个名字，而不是设备自己报告的名字。留空则恢复。";
 "scanning" = "扫描中…";
 "seconds" = "秒钟";
+"set_distance_reference" = "设置 1 米参考 RSSI…";
+"set_distance_reference_info" = "设备在正好 1 米时的 RSSI，仅用于距离估算。常见取值 -50 到 -70 dBm。调大（更接近 0）估算距离变大，调小则变小。锁定与解锁阈值仍用 dBm。";
 "set_password" = "设置密码…";
 "set_rssi_threshold" = "设置最小RSSI…";
+"show_distance" = "显示距离估算";
 "sleep_display" = "锁定时关闭屏幕";
 "timeout" = "无信号超时";
 "unlock_rssi" = "解锁 RSSI";

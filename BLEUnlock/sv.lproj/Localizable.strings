@@ -26,10 +26,15 @@
 "password_not_set" = "Inget lösenordet har angetts.";
 "pause_now_playing" = "Pausa \"Spela nu\" när låst";
 "quit" = "Avsluta BLEUnlock";
+"rename_device" = "Byt namn på vald enhet …";
+"rename_device_info" = "Det här namnet visas i listan i stället för namnet enheten rapporterar. Tomt återgår.";
 "scanning" = "Skannar…";
 "seconds" = "sekunder";
+"set_distance_reference" = "Ange referens-RSSI på 1 m …";
+"set_distance_reference_info" = "Det RSSI en enhet har exakt en meter bort, används bara till avståndsuppskattning. Typiskt -50 till -70 dBm. Högre värde (närmare 0) ger större uppskattning, lägre ger mindre. Lås- och upplåströsklar är fortfarande i dBm.";
 "set_password" = "Ange lösenord…";
 "set_rssi_threshold" = "Ange lägsta RSSI…";
+"show_distance" = "Visa uppskattat avstånd";
 "sleep_display" = "Stäng av skärmen vid låsning";
 "timeout" = "Ingen-signal tidsgräns";
 "unlock_rssi" = "Upplåsnings RSSI";

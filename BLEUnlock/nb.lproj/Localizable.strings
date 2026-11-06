@@ -26,10 +26,15 @@
 "password_not_set" = "Passord er ikke angitt.";
 "pause_now_playing" = "Stans \"Avspilling nå\" mens den er låst";
 "quit" = "Slutte BLEUnlock";
+"rename_device" = "Endre navn på valgte enhet …";
+"rename_device_info" = "Dette navnet vises i listen i stedet for navnet enheten rapporterer. Tomt for å gå tilbake.";
 "scanning" = "kcanning…";
 "seconds" = "seconder";
+"set_distance_reference" = "Angi referanse-RSSI på 1 m …";
+"set_distance_reference_info" = "RSSI-en en enhet har nøyaktig en meter unna, bare brukt til avstandsestimat. Typisk -50 til -70 dBm. Høyere verdi (nærme 0) gir større estimat, lavere gir mindre. Låse- og opplåssterskler forblir i dBm.";
 "set_password" = "Angi passord…";
 "set_rssi_threshold" = "Angi minimum RSSI…";
+"show_distance" = "Vis estimert avstand";
 "sleep_display" = "Slå av skjerm ved låsing";
 "timeout" = "Tidsavbrudd uten signal";
 "unlock_rssi" = "Låse opp RSSI";

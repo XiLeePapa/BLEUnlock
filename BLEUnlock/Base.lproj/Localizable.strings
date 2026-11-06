@@ -26,10 +26,15 @@
 "password_not_set" = "Password is not set.";
 "pause_now_playing" = "Pause \"Now Playing\" while Locked";
 "quit" = "Quit BLEUnlock";
+"rename_device" = "Rename Selected Device…";
+"rename_device_info" = "This name is shown in the device list instead of the name the device reports. Leave it empty to go back.";
 "scanning" = "Scanning…";
 "seconds" = "seconds";
+"set_distance_reference" = "Set 1m Reference RSSI…";
+"set_distance_reference_info" = "The RSSI a device has exactly one meter away, used only for the distance estimate. Typical values are -50 to -70 dBm. Raising it (towards 0 dBm) makes estimates larger, lowering it makes them smaller. Lock and unlock thresholds stay in dBm.";
 "set_password" = "Set Password…";
 "set_rssi_threshold" = "Set Minimum RSSI…";
+"show_distance" = "Show Estimated Distance";
 "sleep_display" = "Turn Off Screen on Lock";
 "timeout" = "No-Signal Timeout";
 "unlock_rssi" = "Unlock RSSI";

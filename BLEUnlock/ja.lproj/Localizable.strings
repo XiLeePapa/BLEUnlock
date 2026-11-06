@@ -26,10 +26,15 @@
 "password_not_set" = "パスワードが設定されていません。";
 "pause_now_playing" = "ロック中 \"再生中\" を一時停止";
 "quit" = "BLEUnlock を終了";
+"rename_device" = "選択中のデバイスをリネーム…";
+"rename_device_info" = "デバイスが報告する名前の代わりにこの名前をリストに表示します。空白にすると戻ります。";
 "scanning" = "スキャン中…";
 "seconds" = "秒";
+"set_distance_reference" = "1m 基準 RSSI を設定…";
+"set_distance_reference_info" = "デバイスがちょうど 1 m 離れているときの RSSI です（距離表示にのみ使用）。一般的に -50〜-70 dBm。大きく（0 に近く）すると距離は大きく、小さくすると小さくなります。ロック/解除の閾値は dBm のままです。";
 "set_password" = "パスワードを設定…";
 "set_rssi_threshold" = "最小RSSIを設定…";
+"show_distance" = "推算距離を表示";
 "sleep_display" = "ロック時画面をスリープ";
 "timeout" = "無信号タイムアウト";
 "unlock_rssi" = "アンロック信号強度";

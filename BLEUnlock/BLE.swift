@@ -32,11 +32,49 @@ class Device: NSObject {
     var manufacture : String?
     var model : String?
     var advData: Data?
+    var advLocalName: String?
     var rssi: Int = 0
     var scanTimer: Timer?
     var macAddr: String?
     var blName: String?
-    
+
+    private func nonBlank(_ name: String?) -> String? {
+        guard let name = name?.trimmingCharacters(in: .whitespacesAndNewlines) else { return nil }
+        return name.isEmpty ? nil : name
+    }
+
+    // Name the device tells us about itself, in order of how well it identifies it to the user:
+    // 1. CBPeripheral.name. Since macOS 13 this is the only source that works for the devices we
+    //    care about: the system no longer lets third-party apps read /Library/Bluetooth/*.db nor
+    //    keep CoreBluetoothCache/DeviceCache in com.apple.Bluetooth.plist, while CoreBluetooth
+    //    itself still resolves the name the user set on the device ("q phone" for an iPhone that
+    //    was renamed in Settings > General > About) as soon as it is first discovered.
+    // 2. blName: the name from those legacy system records, still available on macOS 12 or older.
+    // 3. advLocalName: the Local Name the device puts in its advertisement/scan response, for
+    //    devices CoreBluetooth has no record of at all.
+    // An iPhone that the Mac has never talked to appears as a rotating alias here, which is no
+    // worse than the UUID we used to fall back to.
+    private var deviceName: String? {
+        return nonBlank(peripheral?.name) ?? nonBlank(blName) ?? nonBlank(advLocalName)
+    }
+
+    // Apple iBeacon payload: 0x4C00 0x215, a 16 byte proximity UUID, major, minor, and the
+    // measured RSSI at 1 m. That last byte is the only per-device distance reference a
+    // advertiser gives us; the CoreBluetooth Tx Power value is transmit power, not a 1 m RSSI.
+    private var iBeacon: (major: Int, minor: Int, measuredPower: Int)? {
+        guard let adv = advData, adv.count >= 25 else { return nil }
+        var prefix: [uint16] = [0x004c, 0x01502]
+        guard adv[0...3] == Data(bytes: &prefix, count: 4) else { return nil }
+        return (Int(adv[20]) << 8 | Int(adv[21]),
+                Int(adv[22]) << 8 | Int(adv[23]),
+                Int(Int8(bitPattern: adv[24])))
+    }
+
+    // Expected RSSI at 1 m for this device, when it tells us: used to turn RSSI into a distance.
+    var referenceRSSI1m: Int? {
+        return iBeacon?.measuredPower
+    }
+
     override var description: String {
         get {
             if macAddr == nil || blName == nil {
@@ -52,12 +90,11 @@ class Device: NSObject {
                 if blName == nil {
                     blName = getNameFromMAC(mac)
                 }
-                if let name = blName {
-                    // If it's just "iPhone" or "iPad", there's a chance we can get the model name in the following code
-                    if name != "iPhone" && name != "iPad" {
-                        return name
-                    }
-                }
+            }
+            let name = deviceName
+            // If it's just "iPhone" or "iPad", there's a chance we can get the model name in the following code
+            if let name = name, name != "iPhone" && name != "iPad" {
+                return name
             }
             if let manu = manufacture {
                 if let mod = model {
@@ -69,29 +106,17 @@ class Device: NSObject {
                     return manu
                 }
             }
-            if let name = peripheral?.name {
-                if name.trimmingCharacters(in: .whitespaces).count != 0 {
-                    return name
-                }
-            }
             if let mod = model {
                 return mod
             }
             // iBeacon
-            if let adv = advData {
-                if adv.count >= 25 {
-                    var iBeaconPrefix : [uint16] = [0x004c, 0x01502]
-                    if adv[0...3] == Data(bytes: &iBeaconPrefix, count: 4) {
-                        let major = uint16(adv[20]) << 8 | uint16(adv[21])
-                        let minor = uint16(adv[22]) << 8 | uint16(adv[23])
-                        let tx = Int8(bitPattern: adv[24])
-                        let distance = pow(10, Double(Int(tx) - rssi)/20.0)
-                        let d = String(format:"%.1f", distance)
-                        return "iBeacon [\(major), \(minor)] \(d)m"
-                    }
-                }
+            if let beacon = iBeacon {
+                let distance = pow(10, Double(beacon.measuredPower - rssi)/20.0)
+                let d = String(format:"%.1f", distance)
+                return "iBeacon [\(beacon.major), \(beacon.minor)] \(d)m"
             }
-            if let name = blName {
+            // Nothing better than the plain/rotating name the device itself offered
+            if let name = name {
                 return name
             }
             if let mac = macAddr {
@@ -321,7 +346,7 @@ class BLE: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
         }
 
         if (scanMode) {
-            if let uuids = advertisementData["kCBAdvDataServiceUUIDs"] as? [CBUUID] {
+            if let uuids = advertisementData[CBAdvertisementDataServiceUUIDsKey] as? [CBUUID] {
                 for uuid in uuids {
                     if uuid == ExposureNotification {
                         //print("Device \(peripheral.identifier) Exposure Notification")
@@ -329,6 +354,7 @@ class BLE: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
                     }
                 }
             }
+            let advLocalName = advertisementData[CBAdvertisementDataLocalNameKey] as? String
             let dev = devices[peripheral.identifier]
             var device: Device
             if (dev == nil) {
@@ -336,7 +362,8 @@ class BLE: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
                 if (rssi >= thresholdRSSI) {
                     device.peripheral = peripheral
                     device.rssi = rssi
-                    device.advData = advertisementData["kCBAdvDataManufacturerData"] as? Data
+                    device.advData = advertisementData[CBAdvertisementDataManufacturerDataKey] as? Data
+                    device.advLocalName = advLocalName
                     devices[peripheral.identifier] = device
                     central.connect(peripheral, options: nil)
                     delegate?.newDevice(device: device)
@@ -344,6 +371,11 @@ class BLE: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
             } else {
                 device = dev!
                 device.rssi = rssi
+                // Many devices put their name in the scan response, which arrives later than
+                // the advertisement that made us list the device.
+                if device.advLocalName == nil {
+                    device.advLocalName = advLocalName
+                }
                 delegate?.updateDevice(device: device)
             }
             resetScanTimer(device: device)

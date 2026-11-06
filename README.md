@@ -24,7 +24,7 @@ This document is also available in [Japanese (日本語版はこちら)](README.
 ## Requirements
 
 - A Mac with Bluetooth Low Energy support
-- macOS 10.13 (High Sierra) or later
+- macOS 12 (Monterey) or later
 - iPhone 5s or newer, Apple Watch (all), or another BLE device that has [static MAC address](#notes-on-mac-address) and transmits signal periodically
 
 ## Installation
@@ -77,13 +77,20 @@ Set Password... | If you changed your login password, use this.
 Passive Mode | By default it actively tries to connect to the BLE device and read the RSSI. Most of the time, the default is recommended and works stably. However, if you are using other Bluetooth things like keyboard, mouse, track pad or most notably Bluetooth Personal Hotspot, the default mode may interfere with each other. 2.4GHz WiFi may interfere as well. If you are experiencing instability of Bluetooth, turn on Passive Mode.
 Launch at Login | Launches BLEUnlock when you login.
 Set Minimum RSSI | Devices with RSSI below this value will not be displayed in the device scan list.
+Show Estimated Distance | Adds a rough distance to each device, such as `-52dBm ≈0.5m`. It is computed from the RSSI, so it is a guide and not a measurement; the lock and unlock thresholds stay in dBm.
+Set 1m Reference RSSI… | The RSSI a device has when it is exactly one meter away, used only for the distance estimate above. Typical values are -50 to -70 dBm. iBeacons carry this value themselves and ignore it.
+Rename Selected Device… | Give the selected device a name of your own, shown in the device list and on the first menu line. This is the only way to label devices that never report a name (many bands, sensors and beacons).
 
 ## Troubleshooting
 
 ### Can't find my device in the list
 
-If your BLE device is not from Apple, BLEUnlock may not able to find the device name.
-If that is the case, your device is displayed as a UUID (long hexadecimal numbers and hyphens).
+BLEUnlock displays the name a device has for itself: the name you set on the device (on iPhone, *Settings > General > About > Name*), or the name the device puts in its Bluetooth advertisement.
+Both are taken from the device itself, because recent macOS releases no longer let third-party apps read device names from the system's own Bluetooth records.
+The name of the selected device is also shown on the first line of the menu, together with the signal strength.
+
+If a device has no name to offer, it is displayed as a UUID (long hexadecimal numbers and hyphens).
+To label such a device anyway, select it and use *Rename Selected Device…*: your own name is then shown in the list and on the first menu line, and it survives the device changing its address.
 To identify the device, try moving the device closer to or farther away from the Mac and see if the RSSI (dB value) changes accordingly.
 
 If you don't see *any* device in the list, try resetting the Bluetooth module as described below.

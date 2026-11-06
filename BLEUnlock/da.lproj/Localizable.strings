@@ -26,10 +26,15 @@
 "password_not_set" = "Der er ikke indstillet et kodeord.";
 "pause_now_playing" = "Pause \"Afspilning nu\", mens den er låst";
 "quit" = "Afslut BLEUnlock";
+"rename_device" = "Omdøb valgte enhed …";
+"rename_device_info" = "Dette navn vises på listen i stedet for det navn, enheden selv rapporterer. Tom for at gå tilbage.";
 "scanning" = "Scanning…";
 "seconds" = "seconder";
+"set_distance_reference" = "Angiv reference-RSSI på 1 m …";
+"set_distance_reference_info" = "Den RSSI en enhed har nøjagtig en meter væk, bruges kun til afstandsestimat. Typiske værdier er -50 til -70 dBm. Højere værdi (tættere på 0) giver større estimat, lavere giver mindre. Låse- og oplåsningstærskler forbliver i dBm.";
 "set_password" = "Indstil adgangskode…";
 "set_rssi_threshold" = "Indstil mindste RSSI…";
+"show_distance" = "Vis estimeret afstand";
 "sleep_display" = "Slå skærmen fra ved låsning";
 "timeout" = "Timeout for manglende signal";
 "unlock_rssi" = "Låse op RSSI";
